@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Twitter Porn bot hunter
+Twitter Crypto bot hunter
 """
-
+import pprint
 import datetime
 import os
 import pycurl
@@ -18,9 +18,12 @@ from urllib.request import urlopen
 import requests
 import tweepy
 from bs4 import BeautifulSoup
-from googlesearch.googlesearch import GoogleSearch
+#from googlesearch.googlesearch import GoogleSearch
+#from googlesearch import GoogleSearch
 
 from secrets import *
+
+import duckduckgo
 
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_secret)
@@ -28,22 +31,38 @@ api = tweepy.API(auth)
 
 pseudos = []
 patterns = [
-    'site:twitter.com "Twerk dancer/Fitness lover"',
-    'site:twitter.com "Cosplay master \\ Travel lover"',
-    'site:twitter.com "Cosplay master/Travel lover"',
-    'site:twitter.com "Cosplay master \\\\ Travel lover"',
-    'site:twitter.com "Cosplay master // MARVEL fan"',
-    'site:twitter.com "Cosplay fan // MARVEL fan"',
-    'site:twitter.com "Sweet lady. Dancing \\\\ DC fan"',
-    'site:twitter.com "Sweet lady. Twerk dancer. Cats lover"',
-    'site:twitter.com "Pretty girl. Dancing. Fitness"',
-    'site:twitter.com "Actress \\\\ Travel"',
-    'site:twitter.com "Costume designer // Dogs lover"',
-    'site:twitter.com "Gamer / Dogs lover"',
-    'site:twitter.com "Cute girl. Cosplay fan/MARVEL fan"',
-    'site:twitter.com "Humble girl. Cosplayer/DC fan"',
-    'site:twitter.com "Simple girl. Gamer \ Traveler"',
-    'site:twitter.com "Voice actress. Dogs lover'
+    #'site:twitter.com "Twerk dancer/Fitness lover"',
+    #'site:twitter.com "Cosplay master \\ Travel lover"',
+    #'site:twitter.com "Cosplay master/Travel lover"',
+    #'site:twitter.com "Cosplay master \\\\ Travel lover"',
+    #'site:twitter.com "Cosplay master // MARVEL fan"',
+    #'site:twitter.com "Cosplay fan // MARVEL fan"',
+    #'site:twitter.com "Sweet lady. Dancing \\\\ DC fan"',
+    #'site:twitter.com "Sweet lady. Twerk dancer. Cats lover"',
+    #'site:twitter.com "Pretty girl. Dancing. Fitness"',
+    #'site:twitter.com "Actress \\\\ Travel"',
+    #'site:twitter.com "Costume designer // Dogs lover"',
+    #'site:twitter.com "Gamer / Dogs lover"',
+    #'site:twitter.com "Cute girl. Cosplay fan/MARVEL fan"',
+    #'site:twitter.com "Humble girl. Cosplayer/DC fan"',
+    #'site:twitter.com "Simple girl. Gamer \ Traveler"',
+    #'site:twitter.com "Voice actress. Dogs lover',
+    #'site:twitter.com "giving away" "btc to our followers"',
+    #'site:twitter.com "giving away" "bch to our followers"',
+    #'site:twitter.com "giving away" "eth to our followers"',
+    #'site:twitter.com "giving away" "trx to our followers"'
+    ['site:twitter.com inurl:status','"we\'re giving away"','"to our followers"','"address below"'],
+    ['site:twitter.com inurl:status','"we\'re giving away"','"to our followers"','"contract below"'],
+    ['site:twitter.com inurl:status','"we\'re giving away"','"to our followers"','"wallet below"'],
+    ['site:twitter.com inurl:status','"we are giving away"','"to our followers"','"address below"'],
+    ['site:twitter.com inurl:status','"we are giving away"','"to our followers"','"contract below"'],
+    ['site:twitter.com inurl:status','"we are giving away"','"to our followers"','"wallet below"'],
+    ['site:twitter.com inurl:status','"i\'m giving away"','"to our followers"','"address below"'],
+    ['site:twitter.com inurl:status','"i\'m giving away"','"to our followers"','"contract below"'],
+    ['site:twitter.com inurl:status','"i\'m giving away"','"to our followers"','"wallet below"'],
+    ['site:twitter.com inurl:status','"i am giving away"','"to our followers"','"address below"'],
+    ['site:twitter.com inurl:status','"i am giving away"','"to our followers"','"contract below"'],
+    ['site:twitter.com inurl:status','"i am giving away"','"to our followers"','"wallet below"']
 ]
 
 TEMP_FILE = 'temp.jpg'
@@ -88,7 +107,7 @@ def paste(content, title, key):
         return None
 
 
-def parse_google_web_search(search_result):
+def parse_google_web_search(search_result,pattern):
     """
     Parse a Google web search.
 
@@ -98,12 +117,54 @@ def parse_google_web_search(search_result):
         Google web search result
     """
 
-    for result_item in search_result.results:
-        handle = result_item.url.split("/")[3]
 
-        if handle not in pseudos:
-            pseudos.insert(0, handle)
-            print("pseudo: {}, length: {}".format(handle, len(pseudos)))
+    #print (len(list(search_result)))
+    print (pattern)
+    pattern = [x for x in pattern if "site:" not in x]
+    print (pattern)
+    pattern = [s.replace('"', '') for s in pattern]
+    print (pattern)
+    #for result_item in search_result.results:
+    for result_item in list(search_result):
+        print ("Result: << " + (result_item) + " >>")
+        if result_item != "":
+            if "/status/" in result_item:
+                print("retrieved URL is a status")
+                print (result_item)
+                #handle = result_item.url.split("/")[3]
+                handle = result_item.split("/")[3]
+                #status_id = result_item.url.split("/")[5]
+                status_id = result_item.split("/")[5]
+                pprint.PrettyPrinter (status_id)
+                try:
+                    status = api.statuses_lookup([status_id])
+                    #print (status)
+                    # make sure the tweet contains the words
+                    print ("checking...!")
+                    print (status)
+                    if status:
+                        text = status[0].text
+                        text = [s.replace('  ', ' ') for s in text]
+                        text = ''.join(text)
+                        print (text)
+                        if status[0].text and all(x.lower() in status[0].text.lower() for x in pattern):
+                            print ("ALL FOUND!")
+                            handle = status[0].author.screen_name
+                        elif status[0].text and any(x.lower() in status[0].text.lower() for x in pattern):
+                            print ("SOME FOUND!")
+                            handle = status[0].author.screen_name
+                        else:
+                            print ("not found :(")
+                            handle = ""
+                except Exception as e:
+                    print (str(e))
+            else:
+                #handle = result_item.url.split("/")[3]
+                handle = result_item.split("/")[3]
+
+            if handle != "" and handle not in pseudos:
+                pseudos.insert(0, handle)
+                print("pseudo: {}, length: {}".format(handle, len(pseudos)))
 
 
 def publish_tweet(handle):
@@ -143,7 +204,10 @@ def publish_tweet(handle):
         return True
     else:
         message = "Pseudo: " + handle + "\nStatus: suspended"
-        api.update_status(message)
+        try:
+            api.update_status(message)
+        except:
+            print ("api_update_status error")
 
 
 def download_image(profile_picture_url):
@@ -190,7 +254,10 @@ def get_profile_picture_url(profile_url):
 
     url_re = re.compile(r"https://pbs.twimg.com/profile_images/.*?jpg")
 
-    page = urlopen(profile_url)
+    try:
+        page = urlopen(profile_url)
+    except:
+        page = ""
 
     if page:
         html = page.read().decode('utf-8')
@@ -269,28 +336,38 @@ def publish_summary_tweet():
     """
 
     # Create the pastebin content
-    paste_content = "Detected Twitter porn bots by @PornBotHunter:"
+    paste_content = "Detected Twitter crypto bots by @CryptoBotHunter:"
 
     for name in pseudos:
         paste_content += "\n@{}".format(name)
 
     now = datetime.datetime.now()
-    title = "Detected bots by @PornBotHunter {}".format(
+    title = "Detected bots by @CryptoBotHunter {}".format(
         now.strftime("%d/%m/%Y"))
 
-    pbin_url = paste(paste_content, title, pastebin_dev_key)
+    if len(pseudos) > 0:
+        pbin_url = paste(paste_content, title, pastebin_dev_key)
+    else:
+        pbin_url = "(skip)"
 
     if pbin_url:
-        message = ("Currently, @PornBotHunter detected {} #Twitter #porn #bots."
+        message = ("Currently, @CryptoBotHunter detected {} #Twitter #crypto #bots.\n"
                    "Detailed list is available here: {}").format(len(pseudos),
                                                                  pbin_url)
-        api.update_status(message)
+        try:
+            api.update_status(message)
+        except:
+            print ("api.update_status()")
 
 
 if __name__ == '__main__':
     while True:
-        result = GoogleSearch().search(random.choice(patterns), num_results=100)
-        parse_google_web_search(result)
+        pattern = random.choice(patterns)
+        search =  str.join(' ',pattern)
+        print (search)
+        #result = GoogleSearch().search(search, num_results=100)
+        result = duckduckgo.search(search, max_results=100)
+        parse_google_web_search(result, pattern)
 
         publish_summary_tweet()
         time.sleep(DELAY_BETWEEN_PUBLICATION)
