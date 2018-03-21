@@ -186,20 +186,24 @@ def publish_tweet(handle):
         handle))
 
     if profile_url and download_image(profile_url):
-        user = api.get_user(handle)
-        message = ("Pseudo: {}"
-                   "\nFollowers: {}"
-                   "\nFollowing: {}"
-                   "\nCreated at: {}").format(handle, user.followers_count,
+        try:
+            user = api.get_user(handle)
+
+            message = ("Pseudo: {}"
+                       "\nFollowers: {}"
+                       "\nFollowing: {}"
+                       "\nCreated at: {}").format(handle, user.followers_count,
                                               user.friends_count,
                                               user.created_at)
-        description_link = get_link_description(user.description)
+            description_link = get_link_description(user.description)
 
-        if description_link:
-            message = message + "\nBio link: " + description_link
-        api.update_with_media(TEMP_FILE, status=message)
+            if description_link:
+                message = message + "\nBio link: " + description_link
+            api.update_with_media(TEMP_FILE, status=message)
 
-        os.remove(TEMP_FILE)
+            os.remove(TEMP_FILE)
+        except Exception as e:
+            print (str(e))
 
         return True
     else:
