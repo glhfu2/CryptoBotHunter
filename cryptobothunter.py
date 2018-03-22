@@ -29,7 +29,7 @@ auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_secret)
 api = tweepy.API(auth)
 
-pseudos = []
+pseudos = dict()
 patterns = [
     #'site:twitter.com "Twerk dancer/Fitness lover"',
     #'site:twitter.com "Cosplay master \\ Travel lover"',
@@ -131,6 +131,8 @@ def parse_google_web_search(search_result,pattern):
             if "/status/" in result_item:
                 print("retrieved URL is a status")
                 print (result_item)
+                #offending_update = result_item.url
+                offending_update = result_item
                 #handle = result_item.url.split("/")[3]
                 handle = result_item.split("/")[3]
                 #status_id = result_item.url.split("/")[5]
@@ -163,11 +165,11 @@ def parse_google_web_search(search_result,pattern):
                 handle = result_item.split("/")[3]
 
             if handle != "" and handle not in pseudos:
-                pseudos.insert(0, handle)
-                print("pseudo: {}, length: {}".format(handle, len(pseudos)))
+                pseudos[handle] = offending_update
+                print("pseudo: {}, length: {}, update: {}".format(handle, len(pseudos), offending_update))
 
 
-def publish_tweet(handle):
+def publish_tweet(handle,url):
     """
     Publish a tweet.
 
@@ -192,9 +194,11 @@ def publish_tweet(handle):
             message = ("Pseudo: {}"
                        "\nFollowers: {}"
                        "\nFollowing: {}"
-                       "\nCreated at: {}").format(handle, user.followers_count,
+                       "\nCreated at: {}"
+                       "\nOffending update: {}").format(handle, user.followers_count,
                                               user.friends_count,
-                                              user.created_at)
+                                              user.created_at,
+                                              url)
             description_link = get_link_description(user.description)
 
             if description_link:
@@ -207,7 +211,7 @@ def publish_tweet(handle):
 
         return True
     else:
-        message = "Pseudo: " + handle + "\nStatus: suspended"
+        message = "Pseudo: " + handle + "\nOffending update: " + url + "\nStatus: suspended"
         try:
             api.update_status(message)
         except:
@@ -330,8 +334,8 @@ def google_image_search(image_url):
             handle = s_link['href'].split("/")[3]
 
             if handle not in pseudos:
-                pseudos.append(handle)
-                print("pseudo: {}, length: {}".format(handle, len(pseudos)))
+                pseudos[handle] = s_link
+                print("pseudo: {}, length: {}, link: {}".format(handle, len(pseudos), s_link))
 
 
 def publish_summary_tweet():
@@ -342,8 +346,8 @@ def publish_summary_tweet():
     # Create the pastebin content
     paste_content = "Detected Twitter crypto bots by @CryptoBotHunter:"
 
-    for name in pseudos:
-        paste_content += "\n@{}".format(name)
+    for p in list(pseudos):
+        paste_content += "\n@{} ({})".format(p,pseudos[p])
 
     now = datetime.datetime.now()
     title = "Detected bots by @CryptoBotHunter {}".format(
@@ -376,12 +380,12 @@ if __name__ == '__main__':
         publish_summary_tweet()
         time.sleep(DELAY_BETWEEN_PUBLICATION)
 
-        for pseudo in pseudos:
+        for p in list(pseudos):
             url = get_profile_picture_url("https://twitter.com/{}".format(
-                pseudo))
+                p))
 
             if url:
                 google_image_search(url)
 
-            publish_tweet(pseudo)
+            publish_tweet(p,pseudos[p])
             time.sleep(DELAY_BETWEEN_PUBLICATION)
