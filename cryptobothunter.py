@@ -21,6 +21,14 @@ from bs4 import BeautifulSoup
 #from googlesearch.googlesearch import GoogleSearch
 #from googlesearch import GoogleSearch
 
+from searchtweets import load_credentials
+from searchtweets import ResultStream, gen_rule_payload, load_credentials
+from searchtweets import collect_results
+
+premium_search_args = load_credentials("secrets.yaml",
+                                       yaml_key="search_tweets_premium",
+                                       env_overwrite=False)
+
 from secrets import *
 
 import duckduckgo
@@ -107,7 +115,7 @@ def paste(content, title, key):
         return None
 
 
-def parse_google_web_search(search_result,pattern):
+def parse_tweets(search_result):
     """
     Parse a Google web search.
 
@@ -118,58 +126,19 @@ def parse_google_web_search(search_result,pattern):
     """
 
 
-    #print (len(list(search_result)))
-    print (pattern)
-    pattern = [x for x in pattern if "site:" not in x]
-    print (pattern)
-    pattern = [s.replace('"', '') for s in pattern]
-    print (pattern)
-    #for result_item in search_result.results:
-    for result_item in list(search_result):
-        print ("Result: << " + (result_item) + " >>")
-        if result_item != "":
-            if "/status/" in result_item:
-                print("retrieved URL is a status")
-                print (result_item)
-                #offending_update = result_item.url
-                offending_update = result_item
-                #handle = result_item.url.split("/")[3]
-                handle = result_item.split("/")[3]
-                #status_id = result_item.url.split("/")[5]
-                status_id = result_item.split("/")[5]
-                pprint.PrettyPrinter (status_id)
-                try:
-                    status = api.statuses_lookup([status_id])
-                    #print (status)
-                    # make sure the tweet contains the words
-                    print ("checking...!")
-                    print (status)
-                    if status:
-                        text = status[0].text
-                        text = [s.replace('  ', ' ') for s in text]
-                        text = ''.join(text)
-                        print (text)
-                        if status[0].text and all(x.lower() in status[0].text.lower() for x in pattern):
-                            print ("ALL FOUND!")
-                            handle = status[0].author.screen_name
-                        elif status[0].text and any(x.lower() in status[0].text.lower() for x in pattern):
-                            print ("SOME FOUND!")
-                            handle = status[0].author.screen_name
-                        else:
-                            print ("not found :(")
-                            handle = ""
-                except Exception as e:
-                    print (str(e))
-            else:
-                #handle = result_item.url.split("/")[3]
-                handle = result_item.split("/")[3]
+    for result_item in search_result:
+        print ("Result: << " + (result_item.id) + " >>")
+        print ("Result: << " + (result_item.screen_name) + " >>")
+        print ("Result: << " + (result_item.text) + " >>")
+        handle = result_item.screen_name
+        offending_update = result_item.id
 
-            if handle != "" and handle not in pseudos:
-                pseudos[handle] = offending_update
-                print("pseudo: {}, length: {}, update: {}".format(handle, len(pseudos), offending_update))
+        if handle != "" and handle not in pseudos:
+            pseudos[handle] = offending_update
+            print("pseudo: {}, length: {}, update: {}".format(handle, len(pseudos), offending_update))
 
 
-def publish_tweet(handle,url):
+def publish_tweet(handle,tweet_id):
     """
     Publish a tweet.
 
@@ -198,7 +167,7 @@ def publish_tweet(handle,url):
                        "\nOffending update: {}").format(handle, user.followers_count,
                                               user.friends_count,
                                               user.created_at,
-                                              url)
+                                              "https://www.twitter.com/statuses/{}".format(tweet_id))
             description_link = get_link_description(user.description)
 
             if description_link:
@@ -370,22 +339,25 @@ def publish_summary_tweet():
 
 if __name__ == '__main__':
     while True:
-        pattern = random.choice(patterns)
-        search =  str.join(' ',pattern)
-        print (search)
-        #result = GoogleSearch().search(search, num_results=100)
-        result = duckduckgo.search(search, max_results=100)
-        parse_google_web_search(result, pattern)
+
+        rule = gen_rule_payload('("i\'m giving away" OR "i am giving away" OR "we\'re giving away" OR "we are giving away") ("to our followers" OR "to my followers") ("address below" OR "contract below" OR "wallet below")', results_per_call=100) # testing with a sandbox account
+        print(rule)
+
+        tweets = collect_results(rule,
+                         max_results=100,
+                         result_stream_args=premium_search_args)
+
+        parse_tweets(tweets)
 
         publish_summary_tweet()
-        time.sleep(DELAY_BETWEEN_PUBLICATION)
+        #time.sleep(DELAY_BETWEEN_PUBLICATION)
 
         for p in list(pseudos):
-            url = get_profile_picture_url("https://twitter.com/{}".format(
-                p))
+            #url = get_profile_picture_url("https://twitter.com/{}".format(
+            #    p))
 
-            if url:
-                google_image_search(url)
+            #if url:
+            #    google_image_search(url)
 
             publish_tweet(p,pseudos[p])
             time.sleep(DELAY_BETWEEN_PUBLICATION)

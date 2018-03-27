@@ -70,3 +70,4 @@ venv.bak/
 .idea/
 
 secrets.py
+secrets.yaml
